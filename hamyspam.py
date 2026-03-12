@@ -1,6 +1,26 @@
+# ==========================================================
+# PROYECTO: DETECCIÓN DE SPAM Y HAM CON NAIVE BAYES
+# Autor: Joseph de Jesús Lemus Pineda
+# Descripción:
+# Este programa entrena un modelo de Machine Learning para
+# clasificar mensajes como SPAM o HAM utilizando TF-IDF
+# y el algoritmo Naive Bayes.
+# ==========================================================
+
+
+# ==========================================================
+# 1. IMPORTACIÓN DE LIBRERÍAS
+# ==========================================================
+
 import re
 import pandas as pd
 
+
+# ==========================================================
+# 2. CREACIÓN DEL DATASET
+# Se generan 30 mensajes de SPAM y 30 mensajes de HAM
+# que serán utilizados para entrenar el modelo.
+# ==========================================================
 
 spam_messages = [
 "Congratulations! You have been selected to win a brand new iPhone. Click here to claim your prize now.",
@@ -34,6 +54,8 @@ spam_messages = [
 "You have been randomly selected for a special survey reward.",
 "Final notice: claim your bonus before midnight tonight."
 ]
+
+
 ham_messages = [
 "Hey, are we still meeting after school today?",
 "Don't forget to bring the homework tomorrow.",
@@ -67,6 +89,13 @@ ham_messages = [
 "See you tomorrow morning at school."
 ]
 
+
+# ==========================================================
+# 3. CREACIÓN DEL DATAFRAME
+# Se combinan los mensajes y se agregan sus etiquetas
+# (spam o ham).
+# ==========================================================
+
 messages = spam_messages + ham_messages
 labels = ["spam"] * len(spam_messages) + ["ham"] * len(ham_messages)
 
@@ -75,68 +104,63 @@ df = pd.DataFrame({
     "tipo": labels
 })
 
-df.head()
+
+# ==========================================================
+# 4. LIMPIEZA DE TEXTO
+# Se eliminan elementos que no aportan valor semántico:
+# - Conversión a minúsculas
+# - Eliminación de URLs
+# - Eliminación de menciones
+# - Eliminación de números
+# - Eliminación de caracteres especiales
+# ==========================================================
 
 def limpiar_texto(texto):
-    
-    # convertir a minusculas
+
     texto = texto.lower()
-    
-    # eliminar urls
     texto = re.sub(r'http\S+|www\S+', '', texto)
-    
-    # eliminar menciones
     texto = re.sub(r'@\w+', '', texto)
-    
-    # eliminar numeros
     texto = re.sub(r'\d+', '', texto)
-    
-    # eliminar caracteres especiales
     texto = re.sub(r'[^a-z\s]', '', texto)
-    
-    # eliminar espacios multiples
     texto = re.sub(r'\s+', ' ', texto).strip()
-    
+
     return texto
+
 
 df["mensaje_limpio"] = df["mensaje"].apply(limpiar_texto)
 
-df.head()
 
-
-
-#Tokenización + eliminación de stopwords
+# ==========================================================
+# 5. TOKENIZACIÓN Y ELIMINACIÓN DE STOPWORDS
+# Se divide el texto en palabras y se eliminan palabras
+# comunes que no aportan significado (stopwords).
+# ==========================================================
 
 import nltk
 nltk.download('stopwords')
+
 from nltk.corpus import stopwords
 
 stop_words = set(stopwords.words("spanish"))
 
+
 def procesar_texto(texto):
-    
-    # tokenizar (separar por palabras)
+
     palabras = texto.split()
-    
-    # eliminar stopwords
+
     palabras_filtradas = [p for p in palabras if p not in stop_words]
-    
-    # volver a unir el texto
+
     return " ".join(palabras_filtradas)
+
 
 df["mensaje_procesado"] = df["mensaje_limpio"].apply(procesar_texto)
 
-df.head()
 
-print("Texto limpio:")
-print(df["mensaje_limpio"][0])
+# ==========================================================
+# 6. ENTRENAMIENTO DEL MODELO
+# Se convierte el texto en vectores numéricos usando TF-IDF
+# ==========================================================
 
-print("\nTexto procesado:")
-print(df["mensaje_procesado"][0])
-
-print("__________________________________________________________")
-
-#entrenamiento del modelo
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 vectorizer = TfidfVectorizer()
@@ -144,11 +168,24 @@ vectorizer = TfidfVectorizer()
 X = vectorizer.fit_transform(df["mensaje_procesado"])
 y = df["tipo"]
 
+
+# ==========================================================
+# 7. DIVISIÓN DE DATOS
+# 80% entrenamiento
+# 20% prueba
+# ==========================================================
+
 from sklearn.model_selection import train_test_split
 
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42
 )
+
+
+# ==========================================================
+# 8. MODELO NAIVE BAYES
+# Se utiliza Multinomial Naive Bayes para clasificar texto
+# ==========================================================
 
 from sklearn.naive_bayes import MultinomialNB
 
@@ -156,32 +193,51 @@ modelo = MultinomialNB()
 
 modelo.fit(X_train, y_train)
 
+
+# ==========================================================
+# 9. EVALUACIÓN DEL MODELO
+# Se genera una matriz de confusión y se calcula el accuracy
+# ==========================================================
+
 predicciones = modelo.predict(X_test)
 
 from sklearn.metrics import confusion_matrix
 
 cm = confusion_matrix(y_test, predicciones)
 
+print("Matriz de confusión:")
 print(cm)
+
 
 from sklearn.metrics import accuracy_score
 
 accuracy = accuracy_score(y_test, predicciones)
 
-
 print("Accuracy del modelo:", accuracy)
-print("__________________________________________________________")
+
+
+# ==========================================================
+# 10. PREDICCIÓN EN TIEMPO REAL
+# El modelo clasifica un mensaje nuevo indicando
+# el nivel de confianza de la predicción.
+# ==========================================================
+
 mensaje_nuevo = ["Congratulations you won a free prize click now"]
-print("mensaje a poner a prueba:", mensaje_nuevo[0])
+
+print("Mensaje a evaluar:", mensaje_nuevo[0])
+
+
 mensaje_limpio = limpiar_texto(mensaje_nuevo[0])
 mensaje_procesado = procesar_texto(mensaje_limpio)
+
 vector = vectorizer.transform([mensaje_procesado])
+
 prediccion = modelo.predict(vector)
-print("Predicción:", prediccion[0])
+
 probabilidades = modelo.predict_proba(vector)
 
-print(probabilidades)
 confianza = max(probabilidades[0]) * 100
 
+
 print("Predicción:", prediccion[0])
-print("Confianza del modelo:", round(confianza,2), "%")
+print("Confianza del modelo:", round(confianza, 2), "%")
